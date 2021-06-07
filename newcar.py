@@ -184,6 +184,7 @@ def run_simulation(genomes, config):
 
     # Simple Counter To Roughly Limit Time (Not Good Practice)
     counter = 0
+    fps = 60
 
     while True:
         # Exit On Quit Event
@@ -218,7 +219,7 @@ def run_simulation(genomes, config):
             break
 
         counter += 1
-        if counter == 30 * 40: # Stop After About 20 Seconds
+        if counter == fps * 20: # Stop After About 20 Seconds
             break
 
         # Draw Map And All Cars That Are Alive
@@ -239,7 +240,7 @@ def run_simulation(genomes, config):
         screen.blit(text, text_rect)
 
         pygame.display.flip()
-        clock.tick(60) # 60 FPS
+        clock.tick(fps) # 60 FPS
 
 if __name__ == "__main__":
     
