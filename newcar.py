@@ -7,7 +7,9 @@ import sys
 import os
 
 import neat
+import pickle
 import pygame
+pygame.init()
 
 # Constants
 # WIDTH = 1600
@@ -18,6 +20,9 @@ HEIGHT = 1080
 
 CAR_SIZE_X = 60    
 CAR_SIZE_Y = 60
+
+MAP = "map3"
+SAVE = "from_map3"
 
 BORDER_COLOR = (255, 255, 255, 255) # Color To Crash on Hit
 
@@ -87,7 +92,7 @@ class Car:
         # Set The Speed To 20 For The First Time
         # Only When Having 4 Output Nodes With Speed Up and Down
         if not self.speed_set:
-            self.speed = 20
+            self.speed = 5
             self.speed_set = True
 
         # Get Rotated Sprite And Move Into The Right X-Direction
@@ -140,9 +145,7 @@ class Car:
         return self.alive
 
     def get_reward(self):
-        # Calculate Reward (Maybe Change?)
-        # return self.distance / 50.0
-        return self.distance / (CAR_SIZE_X / 2)
+        return self.distance / (CAR_SIZE_X / 2) / self.time
 
     def rotate_center(self, image, angle):
         # Rotate The Rectangle
@@ -153,6 +156,98 @@ class Car:
         rotated_image = rotated_image.subsurface(rotated_rectangle).copy()
         return rotated_image
 
+# Player empty if human player, file's name if ai
+def play(player = None):
+    # Human player
+    if player == None:
+        # Initialize The Display
+        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
+        fps = 60
+
+        # Clock Settings
+        # Font Settings & Loading Map
+        clock = pygame.time.Clock()
+        game_map = pygame.image.load(f'./maps/{MAP}.png').convert() # Convert Speeds Up A Lot
+
+        car = Car()
+
+        while True:
+            # Exit On Quit Event
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit(0)
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT:
+                        car.angle += 10 # Left
+                    elif event.key == pygame.K_RIGHT:
+                        car.angle -= 10 # Right
+                    elif event.key == pygame.K_UP:
+                        car.speed += 2 # Speed Up
+                    elif event.key == pygame.K_DOWN:
+                        if(car.speed - 2 >= 12):
+                            car.speed -= 2 # Slow Down
+
+            screen.blit(game_map, (0, 0))
+
+            if car.is_alive():
+                car.update(game_map)
+                car.draw(screen)
+            else:
+                car = Car()
+
+            pygame.display.flip()
+            clock.tick(fps) # 60 FPS
+    else:
+        config_path = "./config.txt"
+        config = neat.config.Config(neat.DefaultGenome,
+                                    neat.DefaultReproduction,
+                                    neat.DefaultSpeciesSet,
+                                    neat.DefaultStagnation,
+                                    config_path)
+        winner = pickle.load(open(player, 'rb'))
+        net = neat.nn.FeedForwardNetwork.create(winner, config)
+
+        # Initialize The Display
+        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
+        fps = 60
+
+        # Clock Settings
+        # Font Settings & Loading Map
+        clock = pygame.time.Clock()
+        game_map = pygame.image.load(f'./maps/{MAP}.png').convert() # Convert Speeds Up A Lot
+
+        car = Car()
+
+        while True:
+            # Exit On Quit Event
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit(0)
+
+            output = net.activate(car.get_data())
+            choice = output.index(max(output))
+            if choice == 0:
+                car.angle += 10 # Left
+            elif choice == 1:
+                car.angle -= 10 # Right
+            elif choice == 2:
+                if(car.speed - 2 >= 12):
+                    car.speed -= 2 # Slow Down
+            else:
+                car.speed += 2 # Speed Up
+
+            screen.blit(game_map, (0, 0))
+
+            if car.is_alive():
+                car.update(game_map)
+                car.draw(screen)
+            else:
+                car = Car()
+
+            pygame.display.flip()
+            clock.tick(fps) # 60 FPS
 
 def run_simulation(genomes, config):
     
@@ -160,8 +255,7 @@ def run_simulation(genomes, config):
     nets = []
     cars = []
 
-    # Initialize PyGame And The Display
-    pygame.init()
+    # Initialize The Display
     screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
 
     # For All Genomes Passed Create A New Neural Network
@@ -177,7 +271,7 @@ def run_simulation(genomes, config):
     clock = pygame.time.Clock()
     generation_font = pygame.font.SysFont("Arial", 30)
     alive_font = pygame.font.SysFont("Arial", 20)
-    game_map = pygame.image.load('map.png').convert() # Convert Speeds Up A Lot
+    game_map = pygame.image.load(f'./maps/{MAP}.png').convert() # Convert Speeds Up A Lot
 
     global current_generation
     current_generation += 1
@@ -190,6 +284,7 @@ def run_simulation(genomes, config):
         # Exit On Quit Event
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                pygame.quit()
                 sys.exit(0)
 
         # For Each Car Get The Acton It Takes
@@ -243,8 +338,12 @@ def run_simulation(genomes, config):
         clock.tick(fps) # 60 FPS
 
 if __name__ == "__main__":
-    
+
+    #play(f'./models/{SAVE}.pkl')
+    #play()
+
     # Load Config
+    max_gen = 200
     config_path = "./config.txt"
     config = neat.config.Config(neat.DefaultGenome,
                                 neat.DefaultReproduction,
@@ -252,11 +351,20 @@ if __name__ == "__main__":
                                 neat.DefaultStagnation,
                                 config_path)
 
-    # Create Population And Add Reporters
+    # Create Population
     population = neat.Population(config)
+
+    # Load From Checkpoint
+    #population = neat.Checkpointer.restore_checkpoint("neat-checkpoint-199")
+
+    # Add Reporters
     population.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     population.add_reporter(stats)
+    population.add_reporter(neat.Checkpointer(max_gen, None))
     
     # Run Simulation For A Maximum of 1000 Generations
-    population.run(run_simulation, 1000)
+    winner = population.run(run_simulation, max_gen)
+
+    # Save Winner
+    pickle.dump(winner, open(f'./models/{SAVE}.pkl', 'wb'))
