@@ -9,6 +9,7 @@ import os
 import neat
 import pickle
 import pygame
+
 pygame.init()
 
 # Constants
@@ -18,44 +19,53 @@ pygame.init()
 WIDTH = 1920
 HEIGHT = 1080
 
-CAR_SIZE_X = 60    
+CAR_SIZE_X = 60
 CAR_SIZE_Y = 60
 
 MAP = "map3"
 SAVE = "from_map3"
 
-BORDER_COLOR = (255, 255, 255, 255) # Color To Crash on Hit
+BORDER_COLOR = (255, 255, 255, 255)  # Color To Crash on Hit
 
-current_generation = 0 # Generation counter
+current_generation = 0  # Generation counter
+
 
 class Car:
 
-    def __init__(self):
+    def __init__(self, name=""):
         # Load Car Sprite and Rotate
-        self.sprite = pygame.image.load('car.png').convert() # Convert Speeds Up A Lot
+        self.sprite = pygame.image.load('car.png').convert()  # Convert Speeds Up A Lot
         self.sprite = pygame.transform.scale(self.sprite, (CAR_SIZE_X, CAR_SIZE_Y))
-        self.rotated_sprite = self.sprite 
+        self.rotated_sprite = self.sprite
 
         # self.position = [690, 740] # Starting Position
-        self.position = [830, 920] # Starting Position
+        self.position = [830, 920]  # Starting Position
         self.angle = 0
         self.speed = 0
 
-        self.speed_set = False # Flag For Default Speed Later on
+        self.speed_set = False  # Flag For Default Speed Later on
 
-        self.center = [self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2] # Calculate Center
+        self.center = [self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2]  # Calculate Center
 
-        self.radars = [] # List For Sensors / Radars
-        self.drawing_radars = [] # Radars To Be Drawn
+        self.radars = []  # List For Sensors / Radars
+        self.drawing_radars = []  # Radars To Be Drawn
 
-        self.alive = True # Boolean To Check If Car is Crashed
+        self.alive = True  # Boolean To Check If Car is Crashed
 
-        self.distance = 0 # Distance Driven
-        self.time = 0 # Time Passed
+        self.distance = 0  # Distance Driven
+        self.time = 0  # Time Passed
+        self.name = name
 
-    def draw(self, screen):
-        screen.blit(self.rotated_sprite, self.position) # Draw Sprite
-        self.draw_radar(screen) #OPTIONAL FOR SENSORS
+    def __str__(self):
+        if self.name != "":
+            return self.name
+        else:
+            return "No name given"
+
+    def draw(self, screen, sensor = False):
+        screen.blit(self.rotated_sprite, self.position)  # Draw Sprite
+        if sensor:
+            self.draw_radar(screen)  # OPTIONAL FOR SENSORS
 
     def draw_radar(self, screen):
         # Optionally Draw All Sensors / Radars
@@ -87,7 +97,7 @@ class Car:
         # Calculate Distance To Border And Append To Radars List
         dist = int(math.sqrt(math.pow(x - self.center[0], 2) + math.pow(y - self.center[1], 2)))
         self.radars.append([(x, y), dist])
-    
+
     def update(self, game_map):
         # Set The Speed To 20 For The First Time
         # Only When Having 4 Output Nodes With Speed Up and Down
@@ -105,7 +115,7 @@ class Car:
         # Increase Distance and Time
         self.distance += self.speed
         self.time += 1
-        
+
         # Same For Y-Position
         self.position[1] += math.sin(math.radians(360 - self.angle)) * self.speed
         self.position[1] = max(self.position[1], 20)
@@ -117,10 +127,14 @@ class Car:
         # Calculate Four Corners
         # Length Is Half The Side
         length = 0.5 * CAR_SIZE_X
-        left_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 30))) * length, self.center[1] + math.sin(math.radians(360 - (self.angle + 30))) * length]
-        right_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 150))) * length, self.center[1] + math.sin(math.radians(360 - (self.angle + 150))) * length]
-        left_bottom = [self.center[0] + math.cos(math.radians(360 - (self.angle + 210))) * length, self.center[1] + math.sin(math.radians(360 - (self.angle + 210))) * length]
-        right_bottom = [self.center[0] + math.cos(math.radians(360 - (self.angle + 330))) * length, self.center[1] + math.sin(math.radians(360 - (self.angle + 330))) * length]
+        left_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 30))) * length,
+                    self.center[1] + math.sin(math.radians(360 - (self.angle + 30))) * length]
+        right_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 150))) * length,
+                     self.center[1] + math.sin(math.radians(360 - (self.angle + 150))) * length]
+        left_bottom = [self.center[0] + math.cos(math.radians(360 - (self.angle + 210))) * length,
+                       self.center[1] + math.sin(math.radians(360 - (self.angle + 210))) * length]
+        right_bottom = [self.center[0] + math.cos(math.radians(360 - (self.angle + 330))) * length,
+                        self.center[1] + math.sin(math.radians(360 - (self.angle + 330))) * length]
         self.corners = [left_top, right_top, left_bottom, right_bottom]
 
         # Check Collisions And Clear Radars
@@ -156,10 +170,13 @@ class Car:
         rotated_image = rotated_image.subsurface(rotated_rectangle).copy()
         return rotated_image
 
-# Player empty if human player, file's name if ai
-def play(player = None):
-    # Human player
-    if player == None:
+
+# if player is None human plays it
+# a series of AIs play it on the same map
+def play(player=None):
+    if player is None:
+        # Human player
+
         # Initialize The Display
         screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
         fps = 60
@@ -167,26 +184,28 @@ def play(player = None):
         # Clock Settings
         # Font Settings & Loading Map
         clock = pygame.time.Clock()
-        game_map = pygame.image.load(f'./maps/{MAP}.png').convert() # Convert Speeds Up A Lot
+        game_map = pygame.image.load(f'./maps/{MAP}.png').convert()  # Convert Speeds Up A Lot
 
         car = Car()
 
-        while True:
+        run = True
+        while run:
             # Exit On Quit Event
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit(0)
+                    run = False
+                    break
+
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_LEFT:
-                        car.angle += 10 # Left
+                        car.angle += 10  # Left
                     elif event.key == pygame.K_RIGHT:
-                        car.angle -= 10 # Right
+                        car.angle -= 10  # Right
                     elif event.key == pygame.K_UP:
-                        car.speed += 2 # Speed Up
+                        car.speed += 2  # Speed Up
                     elif event.key == pygame.K_DOWN:
-                        if(car.speed - 2 >= 12):
-                            car.speed -= 2 # Slow Down
+                        if car.speed - 2 >= 12:
+                            car.speed -= 2  # Slow Down
 
             screen.blit(game_map, (0, 0))
 
@@ -197,60 +216,97 @@ def play(player = None):
                 car = Car()
 
             pygame.display.flip()
-            clock.tick(fps) # 60 FPS
+            clock.tick(fps)  # 60 FPS
+        
+        pygame.quit()
+        sys.exit()
     else:
+        # AI players
+
+        # Initialize The Display
+        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
+        fps = 60
+
         config_path = "./config.txt"
         config = neat.config.Config(neat.DefaultGenome,
                                     neat.DefaultReproduction,
                                     neat.DefaultSpeciesSet,
                                     neat.DefaultStagnation,
                                     config_path)
-        winner = pickle.load(open(player, 'rb'))
-        net = neat.nn.FeedForwardNetwork.create(winner, config)
+        cars = []
+        nets = []
+        rewards = []
 
-        # Initialize The Display
-        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
-        fps = 60
+        for w in player:
+            g = pickle.load(open(f"./models/{w}", 'rb'))
+            net = neat.nn.FeedForwardNetwork.create(g, config)
+            nets.append(net)
+            
+            cars.append(Car(w.split('.')[0]))
+            rewards.append(0)
 
         # Clock Settings
         # Font Settings & Loading Map
         clock = pygame.time.Clock()
-        game_map = pygame.image.load(f'./maps/{MAP}.png').convert() # Convert Speeds Up A Lot
+        game_map = pygame.image.load(f'./maps/{MAP}.png').convert()  # Convert Speeds Up A Lot
 
-        car = Car()
-
-        while True:
+        run = True
+        while run:
             # Exit On Quit Event
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit(0)
+                    run = False
+                    break
 
-            output = net.activate(car.get_data())
-            choice = output.index(max(output))
-            if choice == 0:
-                car.angle += 10 # Left
-            elif choice == 1:
-                car.angle -= 10 # Right
-            elif choice == 2:
-                if(car.speed - 2 >= 12):
-                    car.speed -= 2 # Slow Down
-            else:
-                car.speed += 2 # Speed Up
+            for i, car in enumerate(cars):
+                output = nets[i].activate(car.get_data())
+                choice = output.index(max(output))
+                if choice == 0:
+                    car.angle += 10  # Left
+                elif choice == 1:
+                    car.angle -= 10  # Right
+                elif choice == 2:
+                    if car.speed - 2 >= 12:
+                        car.speed -= 2  # Slow Down
+                else:
+                    car.speed += 2  # Speed Up
 
             screen.blit(game_map, (0, 0))
 
-            if car.is_alive():
-                car.update(game_map)
-                car.draw(screen)
-            else:
-                car = Car()
+            still_alive = 0
+            for i, car in enumerate(cars):
+                if car.is_alive():
+                    still_alive += 1
+                    car.update(game_map)
+                    car.draw(screen)
+                    rewards[i] += car.get_reward()
+
+            if still_alive == 0:
+                run = False
+
+            alive_font = pygame.font.SysFont("Arial", 20)
+            text = alive_font.render("Still Alive: " + str(still_alive), True, (0, 0, 0))
+            text_rect = text.get_rect()
+            text_rect.center = (900, 490)
+            screen.blit(text, text_rect)
 
             pygame.display.flip()
-            clock.tick(fps) # 60 FPS
+            clock.tick(fps)  # 60 FPS
+
+        # show leaderboard
+        leaderboard = []
+        for i, car in enumerate(cars):
+            leaderboard.append([car, rewards[i]])
+            
+        for i, r in enumerate(sorted(leaderboard, key=lambda x: x[1], reverse=True)):
+            print(f"{i+1}. {r[0]} Score: {int(r[1])}m")
+
+        # exit
+        pygame.quit()
+        sys.exit()
+
 
 def run_simulation(genomes, config):
-    
     # Empty Collections For Nets and Cars
     nets = []
     cars = []
@@ -271,7 +327,7 @@ def run_simulation(genomes, config):
     clock = pygame.time.Clock()
     generation_font = pygame.font.SysFont("Arial", 30)
     alive_font = pygame.font.SysFont("Arial", 20)
-    game_map = pygame.image.load(f'./maps/{MAP}.png').convert() # Convert Speeds Up A Lot
+    game_map = pygame.image.load(f'./maps/{MAP}.png').convert()  # Convert Speeds Up A Lot
 
     global current_generation
     current_generation += 1
@@ -292,15 +348,15 @@ def run_simulation(genomes, config):
             output = nets[i].activate(car.get_data())
             choice = output.index(max(output))
             if choice == 0:
-                car.angle += 10 # Left
+                car.angle += 10  # Left
             elif choice == 1:
-                car.angle -= 10 # Right
+                car.angle -= 10  # Right
             elif choice == 2:
-                if(car.speed - 2 >= 12):
-                    car.speed -= 2 # Slow Down
+                if car.speed - 2 >= 12:
+                    car.speed -= 2  # Slow Down
             else:
-                car.speed += 2 # Speed Up
-        
+                car.speed += 2  # Speed Up
+
         # Check If Car Is Still Alive
         # Increase Fitness If Yes And Break Loop If Not
         still_alive = 0
@@ -314,7 +370,7 @@ def run_simulation(genomes, config):
             break
 
         counter += 1
-        if counter == fps * 20: # Stop After About 20 Seconds
+        if counter == fps * 20:  # Stop After About 20 Seconds
             break
 
         # Draw Map And All Cars That Are Alive
@@ -322,9 +378,9 @@ def run_simulation(genomes, config):
         for car in cars:
             if car.is_alive():
                 car.draw(screen)
-        
+
         # Display Info
-        text = generation_font.render("Generation: " + str(current_generation), True, (0,0,0))
+        text = generation_font.render("Generation: " + str(current_generation), True, (0, 0, 0))
         text_rect = text.get_rect()
         text_rect.center = (900, 450)
         screen.blit(text, text_rect)
@@ -335,12 +391,12 @@ def run_simulation(genomes, config):
         screen.blit(text, text_rect)
 
         pygame.display.flip()
-        clock.tick(fps) # 60 FPS
+        clock.tick(fps)  # 60 FPS
+
 
 if __name__ == "__main__":
-
-    #play(f'./models/{SAVE}.pkl')
-    #play()
+    # play(f'./models/{SAVE}.pkl')
+    play(["Bence.pkl", "Zsombor.pkl", "Anna.pkl"])
 
     # Load Config
     max_gen = 200
@@ -355,14 +411,14 @@ if __name__ == "__main__":
     population = neat.Population(config)
 
     # Load From Checkpoint
-    #population = neat.Checkpointer.restore_checkpoint("neat-checkpoint-199")
+    # population = neat.Checkpointer.restore_checkpoint("neat-checkpoint-199")
 
     # Add Reporters
     population.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     population.add_reporter(stats)
     population.add_reporter(neat.Checkpointer(max_gen, None))
-    
+
     # Run Simulation For A Maximum of 1000 Generations
     winner = population.run(run_simulation, max_gen)
 
