@@ -2,9 +2,7 @@
 # Code Changed, Optimized And Commented By: NeuralNine (Florian Dedov)
 
 import math
-import random
 import sys
-import os
 
 import neat
 import pickle

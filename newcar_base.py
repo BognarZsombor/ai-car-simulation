@@ -1,10 +1,7 @@
-# This Code is Heavily Inspired By The YouTuber: Cheesy AI
-# Code Changed, Optimized And Commented By: NeuralNine (Florian Dedov)
+# Car Racing AI
 
 import math
-import random
 import sys
-import os
 
 import neat
 import pickle
